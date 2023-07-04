@@ -1,0 +1,213 @@
+Parameters:
+  VpcCidrBlock:
+    Description: CIDR block for the VPC
+    Type: String
+    Default: 10.0.0.0/16
+  PublicSubnetName:
+    Description: Name for the public subnet
+    Type: String
+    Default: PublicSubnet
+  PrivateSubnetName:
+    Description: Name for the private subnet
+    Type: String
+    Default: PrivateSubnet
+  BackendSubnetName:
+    Description: Name for the backend subnet
+    Type: String
+    Default: BackendSubnet
+  EnableHANAT:
+    Description: Enable HA NAT gateways for private subnets
+    Type: String
+    AllowedValues: [yes, no]
+    Default: no
+
+Conditions:
+  EnableHANATCondition:
+    !Equals [!Ref EnableHANAT, "yes"]
+
+Resources:
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: !Ref VpcCidrBlock
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: 'Name'
+          Value: !Ref AWS::StackName
+
+  PublicSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [0, !Cidr [!Ref VpcCidrBlock, 24, 8]]
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: 'Name'
+          Value: !Ref PublicSubnetName
+
+  PublicSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [1, !Cidr [!Ref VpcCidrBlock, 24, 8]]
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: 'Name'
+          Value: !Ref PublicSubnetName
+
+  PrivateSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [2, !Cidr [!Ref VpcCidrBlock, 24, 8]]
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: 'Name'
+          Value: !Ref PrivateSubnetName
+
+  PrivateSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [3, !Cidr [!Ref VpcCidrBlock, 24, 8]]
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: 'Name'
+          Value: !Ref PrivateSubnetName
+
+  BackendSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [4, !Cidr [!Ref VpcCidrBlock, 24, 8]]
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: 'Name'
+          Value: !Ref BackendSubnetName
+
+  BackendSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [5, !Cidr [!Ref VpcCidrBlock, 24, 8]]
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: 'Name'
+          Value: !Ref BackendSubnetName
+
+  PublicRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: 'Name'
+          Value: !Sub ${AWS::StackName}-Public
+
+  PublicSubnet1RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  PrivateRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: 'Name'
+          Value: !Sub ${AWS::StackName}-Private
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+
+  BackendRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: 'Name'
+          Value: !Sub ${AWS::StackName}-Backend
+
+  BackendSubnet1RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref BackendSubnet1
+      RouteTableId: !Ref BackendRouteTable
+
+  BackendSubnet2RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref BackendSubnet2
+      RouteTableId: !Ref BackendRouteTable
+
+  S3VpcEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      VpcId: !Ref VPC
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - !Ref PublicRouteTable
+
+  NATGateway1:
+    Type: 'AWS::EC2::NatGateway'
+    Condition: EnableHANATCondition
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      AllocationId: !GetAtt NATGatewayEIP1.AllocationId
+
+  NATGateway2:
+    Type: 'AWS::EC2::NatGateway'
+    Condition: EnableHANATCondition
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      AllocationId: !GetAtt NATGatewayEIP2.AllocationId
+
+  NATGatewayEIP1:
+    Type: 'AWS::EC2::EIP'
+    Condition: EnableHANATCondition
+
+  NATGatewayEIP2:
+    Type: 'AWS::EC2::EIP'
+    Condition: EnableHANATCondition
+
+Outputs:
+  VpcId:
+    Description: VPC ID
+    Value: !Ref VPC
+  PublicSubnetIds:
+    Description: Public subnet IDs
+    Value: !Join [",", [!Ref PublicSubnet1, !Ref PublicSubnet2]]
+  PrivateSubnetIds:
+    Description: Private subnet IDs
+    Value: !Join [",", [!Ref PrivateSubnet1, !Ref PrivateSubnet2]]
+  BackendSubnetIds:
+    Description: Backend subnet IDs
+    Value: !Join [",", [!Ref BackendSubnet1, !Ref BackendSubnet2]]
+  S3VpcEndpointId:
+    Description: S3 VPC endpoint ID
+    Value: !Ref S3VpcEndpoint
+  NATGateway1Id:
+    Description: NAT Gateway 1 ID
+    Condition: EnableHANATCondition
+    Value: !Ref NATGateway1
+  NATGateway2Id:
+    Description: NAT Gateway 2 ID
+    Condition: EnableHANATCondition
+    Value: !Ref NATGateway2
