@@ -1,0 +1,28 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create IAM Role with S3 permissions
+
+Resources:
+  S3ListBucketRole:
+    Type: 'AWS::IAM::Role'
+    Properties: 
+      RoleName: 'S3ListBucketRole'
+      AssumeRolePolicyDocument: 
+        Version: '2012-10-17'
+        Statement: 
+          - Effect: 'Allow'
+            Principal: 
+              AWS: 'arn:aws:iam::208818302522:root'
+            Action: 'sts:AssumeRole'
+      Policies: 
+        - PolicyName: 'S3ListBucketPolicy'
+          PolicyDocument: 
+            Version: '2012-10-17'
+            Statement: 
+              - Effect: 'Allow'
+                Action: 
+                  - 's3:ListBucket'
+                  - 's3:ListAllMyBuckets'
+                  - 's3:GetBucketLocation'
+                  - 's3:ListBucketMultipartUploads'
+                  - 's3:ListBucketVersions'
+                Resource: '*'
