@@ -1,0 +1,67 @@
+---
+- name: Gather System Resources on Linux Instance
+  hosts: all
+  become: yes
+
+  tasks:
+
+    - name: Gather basic system information
+      setup:
+        filter: "ansible_*"
+      register: system_info
+
+    - name: Display system hostname
+      debug:
+        msg: "Hostname: {{ system_info.ansible_facts.ansible_hostname }}"
+
+    - name: Display system distribution
+      debug:
+        msg: "Distribution: {{ system_info.ansible_facts.ansible_distribution }} {{ system_info.ansible_facts.ansible_distribution_version }}"
+
+    - name: Gather CPU information
+      shell: "lscpu | grep 'Model name'"
+      register: cpu_info
+
+    - name: Display CPU information
+      debug:
+        msg: "{{ cpu_info.stdout }}"
+
+    - name: Gather memory information
+      shell: "free -m"
+      register: memory_info
+
+    - name: Display memory information
+      debug:
+        msg: "{{ memory_info.stdout_lines }}"
+
+    - name: Gather disk usage information
+      shell: "df -h"
+      register: disk_usage
+
+    - name: Display disk usage
+      debug:
+        msg: "{{ disk_usage.stdout_lines }}"
+
+    - name: Gather network interface information
+      shell: "ip -o link show | awk -F': ' '{print $2}'"
+      register: network_interfaces
+
+    - name: Display network interfaces
+      debug:
+        msg: "Network Interfaces: {{ network_interfaces.stdout_lines }}"
+
+    - name: Gather running processes
+      shell: "ps aux --sort=-%mem | head -n 10"
+      register: running_processes
+
+    - name: Display top 10 memory-consuming processes
+      debug:
+        msg: "{{ running_processes.stdout_lines }}"
+
+    - name: Gather system uptime
+      shell: "uptime -p"
+      register: system_uptime
+
+    - name: Display system uptime
+      debug:
+        msg: "System Uptime: {{ system_uptime.stdout }}"
