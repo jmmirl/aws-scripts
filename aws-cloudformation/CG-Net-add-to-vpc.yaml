@@ -1,0 +1,130 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Add a secondary CIDR range to an existing VPC, create two subnets, deploy Private NAT Gateways, and set up route tables.
+# Adds CG networks to an existing VPC and adds NatGWs and Route tables.
+# Jason Mulreany 20 Aug 2025 
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: ID of the existing VPC.
+
+  NatGatewaySubnet1:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet ID for the first Private NAT Gateway in the primary CIDR block.
+
+  NatGatewaySubnet2:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet ID for the second Private NAT Gateway in the primary CIDR block.
+
+  NewSubnet1Az:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Availability Zone for the first new subnet.
+
+  NewSubnet2Az:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Availability Zone for the second new subnet.
+
+Resources:
+  VpcSecondaryCidrBlock:
+    Type: AWS::EC2::VPCCidrBlock
+    Properties:
+      VpcId: !Ref VpcId
+      CidrBlock: 100.64.0.0/16
+
+  NewSubnet1:
+    Type: AWS::EC2::Subnet
+    DependsOn: VpcSecondaryCidrBlock
+    Properties:
+      VpcId: !Ref VpcId
+      CidrBlock: 100.64.0.0/17
+      AvailabilityZone: !Ref NewSubnet1Az
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: CG-Subnet-1
+
+  NewSubnet2:
+    Type: AWS::EC2::Subnet
+    DependsOn: VpcSecondaryCidrBlock
+    Properties:
+      VpcId: !Ref VpcId
+      CidrBlock: 100.64.128.0/17
+      AvailabilityZone: !Ref NewSubnet2Az
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: CG-Subnet-2
+  NatGateway1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      SubnetId: !Ref NatGatewaySubnet1
+      ConnectivityType: private
+      Tags:
+      - Key: Name
+        Value: NatGW-AZ-1
+
+  NatGateway2:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      SubnetId: !Ref NatGatewaySubnet2
+      ConnectivityType: private
+      Tags:
+      - Key: Name
+        Value: NatGW-AZ-2
+  RouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VpcId
+      Tags:
+      - Key: Name
+        Value: RT-AZ-1
+  RouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VpcId
+      Tags:
+      - Key: Name
+        Value: RT-AZ-2
+  Route1:
+    Type: AWS::EC2::Route
+    DependsOn: NatGateway1
+    Properties:
+      RouteTableId: !Ref RouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1
+
+  Route2:
+    Type: AWS::EC2::Route
+    DependsOn: NatGateway2
+    Properties:
+      RouteTableId: !Ref RouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway2
+
+  SubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref NewSubnet1
+      RouteTableId: !Ref RouteTable1
+
+  SubnetRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref NewSubnet2
+      RouteTableId: !Ref RouteTable2
+
+Outputs:
+  NewSubnet1Id:
+    Description: ID of the first new subnet
+    Value: !Ref NewSubnet1
+
+  NewSubnet2Id:
+    Description: ID of the second new subnet
+    Value: !Ref NewSubnet2
+
+  NatGateway1Id:
+    Description: ID of the first Private NAT Gateway
+    Value: !Ref NatGateway1
+
+  NatGateway2Id:
+    Description: ID of the second Private NAT Gateway
+    Value: !Ref NatGateway2
