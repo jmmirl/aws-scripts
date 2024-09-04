@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to set up billing alerts for AWS.
+
+Parameters:
+  Threshold1:
+    Type: Number
+    Description: 'First billing threshold (in USD)'
+  Threshold2:
+    Type: Number
+    Description: 'Second billing threshold (in USD)'
+  Threshold3:
+    Type: Number
+    Description: 'Third billing threshold (in USD)'
+  EmailAddress1:
+    Type: String
+    Description: 'First email address for notifications'
+  EmailAddress2:
+    Type: String
+    Description: 'Second email address for notifications'
+
+Resources:
+  BillingSNS:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      TopicName: 'BillingAlerts'
+  
+  BillingAlarm1:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: 'BillingAlarm1'
+      AlarmDescription: 'Alarm for billing exceeding first threshold'
+      MetricName: 'EstimatedCharges'
+      Namespace: 'AWS/Billing'
+      Statistic: 'Maximum'
+      Period: '21600' # 6 hours
+      EvaluationPeriods: '1'
+      Threshold: !Ref Threshold1
+      ComparisonOperator: 'GreaterThanThreshold'
+      AlarmActions:
+        - !Ref BillingSNS
+      Dimensions:
+        - Name: 'Currency'
+          Value: 'USD'
+
+  BillingAlarm2:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: 'BillingAlarm2'
+      AlarmDescription: 'Alarm for billing exceeding second threshold'
+      MetricName: 'EstimatedCharges'
+      Namespace: 'AWS/Billing'
+      Statistic: 'Maximum'
+      Period: '21600' # 6 hours
+      EvaluationPeriods: '1'
+      Threshold: !Ref Threshold2
+      ComparisonOperator: 'GreaterThanThreshold'
+      AlarmActions:
+        - !Ref BillingSNS
+      Dimensions:
+        - Name: 'Currency'
+          Value: 'USD'
+
+  BillingAlarm3:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: 'BillingAlarm3'
+      AlarmDescription: 'Alarm for billing exceeding third threshold'
+      MetricName: 'EstimatedCharges'
+      Namespace: 'AWS/Billing'
+      Statistic: 'Maximum'
+      Period: '21600' # 6 hours
+      EvaluationPeriods: '1'
+      Threshold: !Ref Threshold3
+      ComparisonOperator: 'GreaterThanThreshold'
+      AlarmActions:
+        - !Ref BillingSNS
+      Dimensions:
+        - Name: 'Currency'
+          Value: 'USD'
+
+  # Create a subscription for each email address
+  EmailSubscription1:
+    Type: 'AWS::SNS::Subscription'
+    Properties:
+      Endpoint: !Ref EmailAddress1
+      Protocol: 'email'
+      TopicArn: !Ref BillingSNS
+
+  EmailSubscription2:
+    Type: 'AWS::SNS::Subscription'
+    Properties:
+      Endpoint: !Ref EmailAddress2
+      Protocol: 'email'
+      TopicArn: !Ref BillingSNS
+
+Conditions:
+  EmailCondition1: !Not [!Equals [!Ref EmailAddress1, ""]]
+  EmailCondition2: !Not [!Equals [!Ref EmailAddress2, ""]]
+
+Outputs:
+  SNSArn:
+    Description: 'SNS Topic ARN for billing alerts'
+    Value: !Ref BillingSNS
